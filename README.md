@@ -8,9 +8,9 @@ This is just the learning process representation, not commercial use.
 
 
 Since the original authors did not release training code and their implementation is built on top of the Marigold project, I re-implemented the training and inference pipeline as follows:
-- `src/marigold_trainer.py`: Training pipeline based on the Marigold project (which originally outputs depth).
+- `src/trainer/marigold_trainer.py`: Training pipeline based on the Marigold project (which originally outputs depth).
 - `albedo_pipeline.py`: Adapted from [paper author's code](https://github.com/snowflakewang/PBR_Boost_3DGen/blob/main/albedo_mesh_gen/MonoAlbedo/albedo_pipeline.py), modified to fit my dataset and training setup.
-- `src/dataset.py`: Dataloader for my preprocessed Megascan dataset.
+- `src/util/dataset.py`: Dataloader for my preprocessed Megascan dataset.
 - `albedo_infer.py`: Inference script that put everything together.
 - `train.yaml`
 

@@ -1,3 +1,11 @@
+# This file is modified from the original implementation of "PBR_Boost_3DGen"
+# https://github.com/snowflakewang/PBR_Boost_3DGen
+# Original license: Apache License 2.0
+# Modifications by Junyi Wu, 2025
+
+
+
+
 import torch
 from PIL import Image
 
