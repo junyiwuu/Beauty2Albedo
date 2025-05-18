@@ -47,10 +47,10 @@ def batch_process_library(
 
 
 def main():
-    library_dir = f'/home/j/projects/replicatePaper_boost3D/Megascan_Processing/test_megascan'
-    hdri_path = f'/mnt/D/HDRI/meadow_2_4k.exr '
+    library_dir = r'/home/j/projects/replicatePaper_boost3D/Megascan_Processing/test_megascan'
+    hdri_path = r'/home/j/projects/replicatePaper_boost3D/Megascan_Processing/HDRI/meadow_2_4k.exr'
     num_angles = 3
-    output_dir = r'./output'
+    output_dir = r'/home/j/projects/replicatePaper_boost3D/Megascan_Processing/output'
     batch_process_library(  library_dir,  hdri_path, output_dir, num_angles)
 
 

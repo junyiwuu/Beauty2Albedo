@@ -1,6 +1,18 @@
-/Megascan_Processing/otherScript
-/Megascan_Processing/output
-/Megascan_Processing/test_megascan
-/Megascan_Processing/backup.py
-SD_image2albedo.py
+Megascan_Processing/*
+!Megascan_Processing/batch_process.py
+!Megascan_Processing/blender_script.py
+
+MonoSD/albedo_model
+MonoSD/infer_images
+MonoSD/Marigold/marigold/albedo_infer_author.py
+MonoSD/Marigold/marigold/marigold_pipeline.py
+MonoSD/Marigold/output/*
+MonoSD/Marigold/debug.ipynb
+MonoSD/old
+MonoSD/old/*
+MonoSD/test_data
+MonoSD/test_data/*
+MonoSD/test_rgb.png
+MonoSD/work.ipynb
+
 

@@ -19,6 +19,7 @@ from mathutils import Vector
 
 # blender --background --python blender_script.py -- --asset_folder /mnt/D/Quixel/Megascans_Library/Downloaded/3d/wood_planks_tezvbcuda --hdri_path /mnt/D/HDRI/meadow_2_4k.exr --output_dir ./output --num_angles 6
 
+
 # GLOBAL control
 LOD_version = 3
 
@@ -341,9 +342,9 @@ def render_pass(output_dir: str, cam:bpy.types.Object, idx:int, asset_folder: st
     normal_slot = file_output_node.file_slots["Normal"]
 
     asset_name = asset_folder.split("/")[-1]
-    file_output_node.file_slots["Beauty"].path = f"{asset_name}_beauty{idx+1}_"
-    file_output_node.file_slots["Albedo"].path = f"{asset_name}_albedo{idx+1}_"
-    file_output_node.file_slots["Normal"].path = f"{asset_name}_normal{idx+1}_"
+    file_output_node.file_slots["Beauty"].path = f"{asset_name}_angle{idx+1}_color_"
+    file_output_node.file_slots["Albedo"].path = f"{asset_name}_angle{idx+1}_albedo_"
+    file_output_node.file_slots["Normal"].path = f"{asset_name}_angle{idx+1}_normal_"
 
     # CAN CHOOSE TO EXR FILE
     normal_slot.use_node_format = False
