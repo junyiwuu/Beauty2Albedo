@@ -18,7 +18,15 @@ Due to computational limitations (training on a local RTX 5090), I only used a 2
 
 **Note:** This project was developed before the release of Marigold Multimodal version. At the time of development, predicting Albedo was not available in the Marigold repository. Please refer to this commit [Marigold](https://github.com/prs-eth/Marigold/tree/62413d56099d36573b2de1eb8c429839734b7782)
 
+**What it produce now:**
+Input: 
+![test](./images/test.png)
 
+Output:
+![infer](./images/infer_image.png)
+
+**Loss**:
+![loss](./images/loss.png)
 
 
 ## Dataset preparation
