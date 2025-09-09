@@ -2,8 +2,6 @@ Megascan_Processing/*
 !Megascan_Processing/batch_process.py
 !Megascan_Processing/blender_script.py
 
-MonoSD/infer_images
-
 MonoSD/Marigold/output/*
 MonoSD/safetensors/*
 !MonoSD/safetensors/.gitkeep

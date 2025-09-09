@@ -11,6 +11,7 @@ import os
 import subprocess
 import argparse
 import sys
+import random
 
 def batch_process_library(
         library_dir: str,
@@ -49,7 +50,7 @@ def batch_process_library(
 
 
 # remove "_0001" from blender render output, and create filename_lst file for training
-def post_process(root_dir: str, filename_lst = "filename_lst"):
+def post_process(root_dir: str, filename_lst = "filename_lst", filname_lst_val = "filename_lst_val"):
     print(f"Start post process")
     beauty_dir = os.path.join(root_dir, "Beauty")
     albedo_dir = os.path.join(root_dir, "Albedo")
@@ -78,8 +79,17 @@ def post_process(root_dir: str, filename_lst = "filename_lst"):
     with open(os.path.join(root_dir, filename_lst), "w") as f:
         for line in pairs:
             f.write(line + "\n")
+
+    val_num = 10
+    val_len = min(val_num, len(pairs))
+    sample_pairs = random.sample(pairs, val_len)
+
+    with open(os.path.join(root_dir, filname_lst_val), "w") as f:
+        for line in sample_pairs:
+            f.write(line + "\n")
+
     
-    print(f"Done write filename_lst file in the path: {root_dir}")
+    print(f"Done write filename_lst and filename_lst_paris file in the path: {root_dir}")
     
 
 
