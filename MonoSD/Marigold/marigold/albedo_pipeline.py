@@ -6,7 +6,7 @@
 #
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
-# Unless required by applicable law or agreed to in writing, software
+# Unless -=required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
@@ -70,7 +70,7 @@ class MaterialPipeline(DiffusionPipeline):
     """
 
     rgb_latent_scale_factor = 0.18215
-    brdf_latent_scale_factor = 0.18215
+    albedo_latent_scale_factor = 0.18215
 
     def __init__(
         self,
@@ -100,7 +100,7 @@ class MaterialPipeline(DiffusionPipeline):
         input_image: Image,
         denoising_steps: int = 10,
         ensemble_size: int = 10,
-        processing_res: int = 512,
+        processing_res: int = 256,
         match_input_res: bool = True,
         generator: Union[torch.Generator, None] = None,
         batch_size: int = 0,
@@ -108,7 +108,8 @@ class MaterialPipeline(DiffusionPipeline):
         show_progress_bar: bool = True,
         resample_method: str = "bilinear",
         ensemble_kwargs: Dict = None,
-    ) -> MaterialOutput:
+    ) -> MaterialOutput: # put things match materialOutput needs 
+        # __call__ 返回的是materialOutput
         """
         Function invoked when calling the pipeline.
 
@@ -152,101 +153,112 @@ class MaterialPipeline(DiffusionPipeline):
         # ----------------- Image Preprocess -----------------
         ######CHANGE
         # convert to torch.tensor if need
+        # 第一部分if是如果是用户的图，那么进行normalize，如果是evaluate也就是已经normalize的tensor，那就
         if isinstance(input_image, Image.Image):
              # Resize image
+
+             # debug infer
+            print(f"Inference Input image size:  {input_image.size}")
             if processing_res > 0:
                 input_image = self.resize_max_res(input_image, max_edge_resolution=processing_res)
 
             # Convert the image to RGB, to 1.remove the alpha channel 2.convert B&W to 3-channel
             input_image = input_image.convert("RGB")
             image = np.asarray(input_image)
-            # Normalize rgb values
-            rgb = np.transpose(image, (2, 0, 1))  # [H, W, rgb] -> [rgb, H, W]
-            # rgb_norm = rgb / 255.0
-            rgb_norm = rgb / 255.0 * 2.0 - 1.0  #  [0, 255] -> [-1, 1]
-            rgb_norm = torch.from_numpy(rgb_norm).to(self.dtype)
-            rgb_norm = rgb_norm.to(device)
 
+            # Normalize rgb values
+            beauty = np.transpose(image, (2, 0, 1))  # [H, W, rgb] -> [rgb, H, W]
+            # rgb_norm = rgb / 255.0
+            beauty_norm = beauty / 255.0 * 2.0 - 1.0  #  [0, 255] -> [-1, 1]
+            beauty_norm = torch.from_numpy(beauty_norm).to(self.dtype)
+            beauty_norm = beauty_norm.to(device)
+            
+            # debug infer
+            print(f"Inference beauty norm size:  {beauty_norm.shape}")
+            print(f"Inference beauty norm min & max:  {beauty_norm.min():.3f}, {beauty_norm.max():.3f}")
+
+        # 自己的dataset输入，是tensor
         elif isinstance(input_image, torch.Tensor):
-            rgb_norm = input_image.squeeze(0)
-            rgb_norm = rgb_norm.to(self.device)
-            assert rgb_norm.ndim==3, f"input_image dimesnion need to be 3, but got {rgb_norm.shape}"
+            beauty_norm = input_image.squeeze(0)  # 去掉batch维度
+            beauty_norm = beauty_norm.to(self.device)
+            assert beauty_norm.ndim==3, f"input_image dimesnion need to be 3, but got {beauty_norm.shape}"
         
         # assert rgb_norm.min() >= 0.0 and rgb_norm.max() <= 1.0
-        assert rgb_norm.min() >= -1.0 and rgb_norm.max() <= 1.0
+        assert beauty_norm.min() >= -1.0 and beauty_norm.max() <= 1.0
 
         # ----------------- Predicting albedo -----------------
         # Batch repeated input image
-        duplicated_rgb = torch.stack([rgb_norm] * ensemble_size) # predict brdf for 10 times and ensemble them
-        single_rgb_dataset = TensorDataset(duplicated_rgb)
+        duplicated_beauty = torch.stack([beauty_norm] * ensemble_size) # predict albedo for 10 times and ensemble them
+        # ensemble multiple times to get the average result
+        single_beauty_dataset = TensorDataset(duplicated_beauty)
         if batch_size > 0:
             _bs = batch_size
         else:
             _bs = self._find_batch_size(
                 ensemble_size=ensemble_size,
-                input_res=max(rgb_norm.shape[1:]),
+                input_res=max(beauty_norm.shape[1:]),
                 dtype=self.dtype,
             )
 
-        single_rgb_loader = DataLoader(single_rgb_dataset, batch_size=_bs, shuffle=False)
+        single_beauty_loader = DataLoader(single_beauty_dataset, batch_size=_bs, shuffle=False)
 
-        # Predict BRDFs
-        brdf_pred_ls = []
+        # Predict Albedo
+        albedo_pred_ls = []
         if show_progress_bar:
-            iterable = tqdm(single_rgb_loader, desc=" " * 2 + "Inference batches", leave=False)
+            iterable = tqdm(single_beauty_loader, desc=" " * 2 + "Inference batches", leave=False)
         else:
-            iterable = single_rgb_loader
+            iterable = single_beauty_loader
         
         for batch in iterable:
             (batched_img,) = batch
-            brdf_pred_raw = self.single_infer(
+            albedo_pred_raw = self.single_infer(
                 rgb_in=batched_img,
                 num_inference_steps=denoising_steps,
                 show_pbar=show_progress_bar,
             )
-            brdf_pred_ls.append(brdf_pred_raw.detach().clone())
-        brdf_preds = torch.concat(brdf_pred_ls, axis=0).squeeze()
+            albedo_pred_ls.append(albedo_pred_raw.detach().clone())
+        albedo_preds = torch.concat(albedo_pred_ls, axis=0).squeeze()
         torch.cuda.empty_cache()  # clear vram cache for ensembling
 
-        # ----------------- Test-time ensembling -----------------
+        # ----------------- ensembling / avergae -----------------
         if ensemble_size > 1:
-            # albedo_pred, rmo_pred = self._ensemble_brdfs(brdf_preds)
-            albedo_pred = self._ensemble_brdfs(brdf_preds)
+            # albedo_pred, rmo_pred = self._ensemble_albedos(albedo_preds)
+            albedo_pred = self._ensemble_albedo(albedo_preds)
             uncert_pred = None
         elif ensemble_size == 1:
-            # albedo_pred, rmo_pred = brdf_preds[:, 0:3, :, :], brdf_preds[:, 3:6, :, :]
-            albedo_pred = brdf_preds
+            # albedo_pred, rmo_pred = albedo_preds[:, 0:3, :, :], albedo_preds[:, 3:6, :, :]
+            albedo_pred = albedo_preds
             uncert_pred = None
         else:
             raise Exception(['[INFO] Invalid ensemble_size.'])
 
-        # Resize back to original resolution
+        # ----------- Resize back to original resolution ---------
         if match_input_res:
             rsz = Resize(input_size[::-1], interpolation=InterpolationMode.BICUBIC, antialias=True)
             albedo_pred = rsz(albedo_pred)
             # rmo_pred = rsz(rmo_pred)
 
-        # transfer from tensor to numpy
+        # ----------- transfer from tensor to numpy --------
         if len(albedo_pred.shape) == 4:
             albedo_pred = albedo_pred.squeeze(0).permute(1, 2, 0).cpu().numpy().astype(np.float32)
-            # rmo_pred = rmo_pred.squeeze(0).permute(1, 2, 0).cpu().numpy().astype(np.float32)
         elif len(albedo_pred.shape) == 3:
             albedo_pred = albedo_pred.permute(1, 2, 0).cpu().numpy().astype(np.float32)
-            # rmo_pred = rmo_pred.permute(1, 2, 0).cpu().numpy().astype(np.float32)
         else:
             raise Exception('[INFO] Invalid albedo or rmo shape.')
 
         # Colorize
         albedo_pred = np.nan_to_num(albedo_pred, nan=0.0)
-        albedo_color = np.clip(albedo_pred + 1 / 2, 0, 1) # [-1,1]->[0,1]
+        albedo_color = np.clip((albedo_pred + 1 )/ 2, 0, 1) # [-1,1]->[0,1]
         albedo_color = (albedo_color * 255).astype(np.uint8)
+        # or write this:
+        # albedo_color = (albedo_pred * 127.5 + 127.5).clip(0, 255).astype(np.uint16)
+        # or save as 16 bits:
+        # albedo_color = (albedo_color * 65535).astype(np.uint16)
         albedo_color = Image.fromarray(albedo_color)
 
         return MaterialOutput(
             albedo_np=albedo_pred,
             albedo_pil=albedo_color,
-            # rmo_np=rmo_pred,
-            # rmo_pil=rmo_color,
             uncertainty=uncert_pred
         )
 
@@ -271,7 +283,7 @@ class MaterialPipeline(DiffusionPipeline):
     def single_infer(self, rgb_in: torch.Tensor, num_inference_steps: int, show_pbar: bool) -> torch.Tensor:
         """
         Perform an individual depth prediction without ensembling.
-        Perform an individual BRDF prediction without ensembling.
+        Perform an individual albedo prediction without ensembling.
 
         Args:
             rgb_in (`torch.Tensor`):
@@ -293,13 +305,13 @@ class MaterialPipeline(DiffusionPipeline):
         # Encode image
         rgb_latent = self._encode_rgb(rgb_in)
         
-        # Initial BRDF (noise)
-        # brdf_latent_shape = [rgb_latent.shape[0], rgb_latent.shape[1] * 2, rgb_latent.shape[2], rgb_latent.shape[3]] # [b, 8, h, w]
-        brdf_latent_shape = rgb_latent.shape # [b, 4, h, w]
+        # Initial albedo (noise)
+        # albedo_latent_shape = [rgb_latent.shape[0], rgb_latent.shape[1] * 2, rgb_latent.shape[2], rgb_latent.shape[3]] # [b, 8, h, w]
+        albedo_latent_shape = rgb_latent.shape # [b, 4, h, w]
 
-        brdf_latent = torch.randn(brdf_latent_shape, device=device, dtype=self.dtype)
+        albedo_latent = torch.randn(albedo_latent_shape, device=device, dtype=self.dtype)
         # print("rgb_latent:", rgb_latent.device)
-        # print("brdf_latent:", brdf_latent.device)
+        # print("albedo_latent:", albedo_latent.device)
 
 
         # Batched empty text embedding
@@ -322,20 +334,20 @@ class MaterialPipeline(DiffusionPipeline):
 
         for i, t in iterable:
             # unet_input = torch.cat([rgb_latent, normal_latent], dim=1)  # this order is important
-            unet_input = torch.cat([brdf_latent, rgb_latent], dim=1)  # this order is important, [b,8,h,w]+[b,4,h,w]->[b,12,h,w]
+            unet_input = torch.cat([albedo_latent, rgb_latent], dim=1)  # this order is important, [b,8,h,w]+[b,4,h,w]->[b,12,h,w]
 
             # predict the noise residual
             noise_pred = self.unet(unet_input, t, encoder_hidden_states=batch_empty_text_embed).sample  # [B, 4, h, w]
 
             # compute the previous noisy sample x_t -> x_t-1
-            brdf_latent = self.scheduler.step(noise_pred, t, brdf_latent).prev_sample
+            albedo_latent = self.scheduler.step(noise_pred, t, albedo_latent).prev_sample
         torch.cuda.empty_cache()
-        brdf = self._decode_brdf(brdf_latent)
+        albedo = self._decode_albedo(albedo_latent)
 
         # clip prediction
-        brdf = torch.clip(input=brdf, min=-1.0, max=1.0)
+        albedo = torch.clip(input=albedo, min=-1.0, max=1.0)
 
-        return brdf
+        return albedo
 
     def _encode_rgb(self, rgb_in: torch.Tensor) -> torch.Tensor:
         """
@@ -353,34 +365,35 @@ class MaterialPipeline(DiffusionPipeline):
         h = self.vae_beauty.encoder(rgb_in)
         
         moments = self.vae_beauty.quant_conv(h)
+        # 切成两半，一半是mean 一半是logvar
         mean, logvar = torch.chunk(moments, 2, dim=1)
         # scale latent, deterministic encoding
         rgb_latent = mean * self.rgb_latent_scale_factor
         return rgb_latent
 
-    def _decode_brdf(self, brdf_latent: torch.Tensor) -> torch.Tensor:
+    def _decode_albedo(self, albedo_latent: torch.Tensor) -> torch.Tensor:
         """
-        Decode latent into BRDF
+        Decode latent into albedo
 
         Args:
-            brdf_latent (`torch.Tensor`):
-                brdf latent to be decoded.
+            albedo_latent (`torch.Tensor`):
+                albedo latent to be decoded.
 
         Returns:
-            `torch.Tensor`: Decoded brdf map.
+            `torch.Tensor`: Decoded albedo map.
         """
         # scale latent
-        brdf_latent = brdf_latent / self.brdf_latent_scale_factor
+        albedo_latent = albedo_latent / self.albedo_latent_scale_factor
         # decode
-        z = self.vae_albedo.post_quant_conv(brdf_latent[:, 0:4, :, :])
+        z = self.vae_albedo.post_quant_conv(albedo_latent[:, 0:4, :, :])
         albedo = self.vae_albedo.decoder(z)
         return albedo
 
-    def _ensemble_brdfs(self, brdf_preds):
-        brdf_pred = brdf_preds.mean(dim=0, keepdim=True) # [b,6,h,w]->[1,6,h,w]
+    def _ensemble_albedo(self, albedo_preds):
+        albedo_pred = albedo_preds.mean(dim=0, keepdim=True) # [b,6,h,w]->[1,6,h,w]
         
-        #return brdf_pred[:, 0:3, :, :], brdf_pred[:, 3:6, :, :] # [albedo, rmo]
-        return brdf_pred
+        #return albedo_pred[:, 0:3, :, :], albedo_pred[:, 3:6, :, :] # [albedo, rmo]
+        return albedo_pred
 
     @staticmethod
     def resize_max_res(img: Image.Image, max_edge_resolution: int) -> Image.Image:

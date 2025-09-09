@@ -9,13 +9,15 @@
           
 import os
 import subprocess
-
+import argparse
+import sys
 
 def batch_process_library(
         library_dir: str,
         hdri_path: str,
         output_dir: str,
-        num_angles: int
+        num_angles: int,
+        res: int
 ):
 
     if os.path.exists(library_dir):
@@ -29,6 +31,7 @@ def batch_process_library(
                 args += f" --hdri_path {hdri_path} "
                 args += f" --num_angles {num_angles} "
                 args += f" --asset_folder {folder_path}"
+                args += f" --res {res}"
 
             command = f"blender --background --python blender_script.py -- {args}"
 
@@ -45,14 +48,57 @@ def batch_process_library(
         print(f"Library path :: {library_dir} not exist")
 
 
+# remove "_0001" from blender render output, and create filename_lst file for training
+def post_process(root_dir: str, filename_lst = "filename_lst"):
+    print(f"Start post process")
+    beauty_dir = os.path.join(root_dir, "Beauty")
+    albedo_dir = os.path.join(root_dir, "Albedo")
+
+
+    # clean out "_0001"
+    for dirpath, _, filenames in os.walk(root_dir):
+        for fname in filenames:
+            base, ext = os.path.splitext(fname)
+
+            if "_0001" in base:
+                clean_name = base.replace("_0001", "") + ext
+
+                old_path = os.path.join(dirpath, fname)
+                new_path = os.path.join(dirpath, clean_name)
+
+                #rename files
+                os.rename(old_path, new_path)
+
+    # write out pair file 
+    pairs = []
+    for dirpath, _, filenames in os.walk(beauty_dir):
+        for fname in filenames:
+            if os.path.exists(os.path.join(albedo_dir, fname)):
+                pairs.append(f"Beauty/{fname} Albedo/{fname}")
+    with open(os.path.join(root_dir, filename_lst), "w") as f:
+        for line in pairs:
+            f.write(line + "\n")
+    
+    print(f"Done write filename_lst file in the path: {root_dir}")
+    
+
 
 def main():
-    library_dir = r'/home/j/projects/replicatePaper_boost3D/Megascan_Processing/test_megascan'
-    hdri_path = r'/home/j/projects/replicatePaper_boost3D/Megascan_Processing/HDRI/meadow_2_4k.exr'
-    num_angles = 3
-    output_dir = r'/home/j/projects/replicatePaper_boost3D/Megascan_Processing/output'
-    batch_process_library(  library_dir,  hdri_path, output_dir, num_angles)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--asset_folder", type=str, required=False, default=None, help="an Asset folder")
+    parser.add_argument("--hdri_path", type=str, required=False, default=None , help="HDRI directory")
+    parser.add_argument("--output_dir" , type=str, required=True, help="set up output render directory")
+    parser.add_argument("--num_angles", type=int, default=1, help="Numbers of camera angles")
+    parser.add_argument("--res", type=int, default=128, help="Resolution of output images")
 
+    args = parser.parse_args()
+
+    batch_process_library( args.asset_folder,  args.hdri_path, args.output_dir, args.num_angles, args.res)
+    post_process(args.output_dir)
 
 if __name__ == "__main__":
     main()
+
+
+# Example command line:
+# python batch_process.py --asset_folder ./src_assets --hdri_path ./HDRI/meadow_2_4k.exr --output_dir ./output --num_angles 6 --res 256

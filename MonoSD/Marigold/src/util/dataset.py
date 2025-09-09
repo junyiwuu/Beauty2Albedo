@@ -45,8 +45,6 @@ class BeautyAlbedoDataset(Dataset):
         beauty_img = Image.open(beauty_path).convert("RGB")
         albedo_img = Image.open(albedo_path).convert("RGB")
 
-        # beauty_tensor = self.transform(beauty_img)
-        # albedo_tensor = self.transform(albedo_img)
         albedo_tensor = self.to_tensor(albedo_img) * 2.0 - 1.0
         beauty_tensor = self.to_tensor(beauty_img) * 2.0 - 1.0
 

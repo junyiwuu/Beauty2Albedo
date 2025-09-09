@@ -76,7 +76,7 @@ if "__main__" == __name__:
         help="On Slurm cluster, do not copy data to local scratch",
     )
     parser.add_argument(
-        "--base_data_dir", type=str, default=None, help="directory of training data"
+        "--training_data", type=str, default=None, help="directory of training data"
     )
     parser.add_argument(
         "--base_ckpt_dir",
@@ -196,7 +196,7 @@ if "__main__" == __name__:
 
 
 
-    # -------------------- Gradient accumulation steps --------------------
+    # ------------------ Gradient accumulation / eff batch size------------------
     eff_bs = cfg.dataloader.effective_batch_size
     accumulation_steps = eff_bs / cfg.dataloader.max_train_batch_size
     assert int(accumulation_steps) == accumulation_steps
@@ -220,15 +220,21 @@ if "__main__" == __name__:
 
     # --------- load dataset ---------
 
-    dataset_dir = r'../../Megascan_Processing/train_dataset/'
-    filename_ls_path = r'../../Megascan_Processing/train_dataset/filename_list'
-    train_dataset = BeautyAlbedoDataset(dataset_dir=dataset_dir, filename_ls_path=filename_ls_path)
+    # dataset_dir = r'../../Megascan_Processing/output/'
+    # filename_ls_path = r'../../Megascan_Processing/output/filename_lst'
+    # filename_ls_val =  r'../../Megascan_Processing/output/filename_lst_val'
+
+    filename_ls = os.path.join(args.training_data, "/filename_lst")
+    filename_ls_val = os.path.join(args.training_data, "/filename_lst_val")
+    train_dataset = BeautyAlbedoDataset(dataset_dir=args.training_data, filename_ls_path=filename_ls)
+    val_dataset = BeautyAlbedoDataset(dataset_dir=args.training_data, filename_ls_path=filename_ls_val)
+
     train_dataloader = DataLoader(
         train_dataset, batch_size = cfg.dataloader.max_train_batch_size,
         shuffle=True, num_workers=cfg.dataloader.num_workers, generator=loader_generator)
     
     val_dataloader = DataLoader(
-        train_dataset, batch_size= 1, shuffle=False, num_workers=cfg.dataloader.num_workers
+        val_dataset, batch_size= 1, shuffle=False, num_workers=cfg.dataloader.num_workers
     )
     # batch_size=cfg.dataloader.effective_batch_size, 
 
@@ -279,7 +285,7 @@ if "__main__" == __name__:
 
 
 
-    # -------------------- Checkpoint --------------------
+    # --------------------load Checkpoint if stop--------------------
     if resume_run is not None:
         trainer.load_checkpoint(
             resume_run, load_trainer_state=True, resume_lr_scheduler=True
@@ -290,3 +296,4 @@ if "__main__" == __name__:
         trainer.train(t_end=t_end)
     except Exception as e:
         logging.exception(e)
+

@@ -40,7 +40,6 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 from PIL import Image
 
-# from marigold.marigold_pipeline import MarigoldPipeline, MarigoldDepthOutput
 from marigold.albedo_pipeline import MaterialPipeline, MaterialOutput
 from src.util import metric
 from src.util.data_loader import skip_first_batches
@@ -167,7 +166,7 @@ class MarigoldTrainer:
             )
 
         # Internal variables
-        self.epoch = 1
+        self.epoch = 1 
         self.n_batch_in_epoch = 0  # batch index in the epoch, used when resume training
         self.effective_iter = 0  # how many times optimizer.step() is called
         self.in_evaluation = False
@@ -215,6 +214,8 @@ class MarigoldTrainer:
 
             # Skip previous batches when resume
             for batch in skip_first_batches(self.train_loader, self.n_batch_in_epoch):
+                # set the mpde; as training mode
+                # eval mode: unet.eval()
                 self.model.unet.train()
 
                 # globally consistent random generators
@@ -229,7 +230,7 @@ class MarigoldTrainer:
 
                 # Get data
                 beauty = batch["beauty_norm"].to(device)
-                albedo_gt_for_latent = batch[self.gt_type].to(device)
+                albedo_gt_for_latent = batch[self.gt_type].to(device) # train.yaml: gt_type: albedo_norm
 
                 # ----------------- valid mask -----------------
                 if self.gt_mask_type is not None:
@@ -302,12 +303,13 @@ class MarigoldTrainer:
 
                 # Concat rgb and depth latents
                 cat_latents = torch.cat(
-                    [beauty_latent, noisy_latents], dim=1
+                    # [beauty_latent, noisy_latents], dim=1
+                    [noisy_latents, beauty_latent], dim=1
                 )  # [B, 8, h, w]
                 cat_latents = cat_latents.float()
 
                 #####################################
-                #     redict the noise residual     #
+                #     predict the noise residual     #
                 #####################################
                 model_pred = self.model.unet(
                     cat_latents, timesteps, text_embed
@@ -361,7 +363,9 @@ class MarigoldTrainer:
 
                     self.effective_iter += 1
 
-                    # Log to tensorboard
+                    ##############################################
+                    ############# Log to tensorboard ############
+                    ##############################################
                     accumulated_loss = self.train_metrics.result()["loss"]
                     tb_logger.log_dic(
                         {
@@ -459,9 +463,8 @@ class MarigoldTrainer:
     def validate(self):
         for i, val_loader in enumerate(self.val_loaders):
             val_dataset_name = val_loader.dataset.disp_name
-            val_metric_dic = self.validate_single_dataset(
-                data_loader=val_loader, metric_tracker=self.val_metrics
-            )
+            val_metric_dic = self.validate_single_dataset(data_loader=val_loader, metric_tracker=self.val_metrics)
+
             logging.info(
                 f"Iter {self.effective_iter}. Validation metrics on `{val_dataset_name}`: {val_metric_dic}"
             )
@@ -516,8 +519,7 @@ class MarigoldTrainer:
     @torch.no_grad()
     def validate_single_dataset(
         self,
-        data_loader: DataLoader,
-        metric_tracker: MetricTracker,
+        data_loader: DataLoader, metric_tracker: MetricTracker,
         save_to_dir: str = None,
     ):
         self.model.to(self.device)
@@ -532,11 +534,12 @@ class MarigoldTrainer:
             start=1,
         ):
             assert 1 == data_loader.batch_size
+
+            # -----------------load in images----------------
             # Read input image
-            beauty_int = batch["beauty_int"]  # [B, 3, H, W]
+            beauty_norm = batch["beauty_norm"]  # [B, 3, H, W] tensor
             # albedo input
-            albedo_raw_ts = batch["albedo_norm"]
-            albedo_raw = albedo_raw_ts.numpy()
+            albedo_raw_ts = batch["albedo_norm"] # tensor
             albedo_raw_ts = albedo_raw_ts.to(self.device)
 
             # valid_mask_ts = batch["valid_mask_raw"].squeeze()
@@ -544,7 +547,7 @@ class MarigoldTrainer:
             # valid_mask_ts = valid_mask_ts.to(self.device)
             valid_mask_ts = batch['valid_mask_raw'].to(self.device)
 
-            # Random number generator
+            # -------------------------Random number generator--------------
             seed = val_seed_ls.pop()
             if seed is None:
                 generator = None
@@ -552,9 +555,9 @@ class MarigoldTrainer:
                 generator = torch.Generator(device=self.device)
                 generator.manual_seed(seed)
 
-            # Predict albedo (PREDICTION PART)
+            # --------------- Predict albedo (PREDICTION PART) ----------------
             pipe_out: MaterialOutput = self.model(
-                beauty_int,
+                beauty_norm,
                 denoising_steps=self.cfg.validation.denoising_steps,
                 ensemble_size=self.cfg.validation.ensemble_size,
                 processing_res=self.cfg.validation.processing_res,
@@ -565,28 +568,26 @@ class MarigoldTrainer:
                 show_progress_bar=False,
                 resample_method=self.cfg.validation.resample_method,
             )
+            # pipe_out is a container, containing result from the model output
 
-            albedo_pred: np.ndarray = pipe_out.albedo_np
+            # -------------- got predicted albedo numpy and pil -------------
+            albedo_pred: np.ndarray = pipe_out.albedo_np # numpy in range [-1, 1]
 
             # Clip to dataset min max
-            albedo_pred = np.clip(
-                albedo_pred,
-                ###### not using original min_depth and max_depth
-                a_min = -1.0,
-                a_max = 1.0,
-            )
+            albedo_pred = np.clip( albedo_pred, a_min = -1.0, a_max = 1.0 )
 
-            # clip to d > 0 for evaluation. This is for depth
-            # albedo_pred = np.clip(albedo_pred, a_min=1e-6, a_max=None)
-
-            # Evaluate
+            # ----------------------------- Evaluate ---------------------------
             sample_metric = []
             ##### change , fix the dimension
             # albedo_pred_ts = (torch.from_numpy(albedo_pred).to(self.device))
+            # 之前pipeline输出的图是numpy，。所以这里需要再转回tensor
+            # transfer back to tensor for calculate metrics
             albedo_pred_ts = (torch.from_numpy(albedo_pred) # (H, W, 3)
                               .permute(2,0,1) # -> (3, H , W)
                               .unsqueeze(0) # -> (1, 3, H, W)
                               .to(self.device))
+            
+            # calculate metrics
             valid_mask_ts = valid_mask_ts.expand_as(albedo_pred_ts)
             for met_func in self.metric_funcs:
                 _metric_name = met_func.__name__
@@ -594,7 +595,7 @@ class MarigoldTrainer:
                 sample_metric.append(_metric.__str__())
                 metric_tracker.update(_metric_name, _metric)
 
-            # Save as 16-bit uint png
+            # -------------------- Save as 16-bit uint png ----------------------
             if save_to_dir is not None:
                 img_name = batch["rgb_relative_path"][0].replace("/", "_")
                 png_save_path = os.path.join(save_to_dir, f"{img_name}.png")

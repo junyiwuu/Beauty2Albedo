@@ -16,7 +16,7 @@ pipeline:
 depth_normalization:
   type: scale_shift_depth
   clip: true
-  norm_min: -1.0
+  norm_min: -1.0 
   norm_max: 1.0
   min_max_quantile: 0.02
 
@@ -25,33 +25,33 @@ augmentation:
 
 dataloader:
   num_workers: 2
-  effective_batch_size: 16
-  max_train_batch_size: 4
-  seed: 2024  # to ensure continuity when resuming from checkpoint
+  effective_batch_size: 9
+  max_train_batch_size: 3
+  seed: 2023  # to ensure continuity when resuming from checkpoint
 
 # Training settings
 trainer:
   name: MarigoldTrainer
   training_noise_scheduler:
     pretrained_path: stable-diffusion-2
-  init_seed: 2024  # use null to train w/o seeding
-  save_period: 5
-  backup_period: 5
-  validation_period: 5
-  visualization_period: 5
+  init_seed: 2023  # use null to train w/o seeding
+  save_period: 500
+  backup_period: 300
+  validation_period: 300
+  visualization_period: 300
 
-# multi_res_noise:
-#   strength: 0.9
-#   annealed: true
-#   downscale_strategy: original
-multi_res_noise: null
+multi_res_noise:
+  strength: 0.9
+  annealed: true
+  downscale_strategy: original
+# multi_res_noise: null
 
 ####### change
 gt_type: albedo_norm
 gt_mask_type: valid_mask_raw
 
-max_epoch: 100  # a large enough number
-max_iter: 200  # usually converges at around 20k
+max_epoch: 30000  # a large enough number
+max_iter: 30000  # usually converges at around 20k
 
 optimizer:
   name: Adam
@@ -65,13 +65,13 @@ lr: 3e-5
 lr_scheduler:
   name: IterExponential
   kwargs:
-    total_iter: 200
+    total_iter: 25000
     final_ratio: 0.01
-    warmup_steps: 50
+    warmup_steps: 100
 
 # Validation (and visualization) settings
 validation:
-  denoising_steps: 5
+  denoising_steps: 30
   ensemble_size: 1  # simplified setting for on-training validation
   processing_res: 0
   match_input_res: false
@@ -81,8 +81,8 @@ validation:
   init_seed: 2024
 
 eval:
-  # alignment: None
-  # align_max_res: null
+  alignment: None
+  align_max_res: null
   eval_metrics:
   - abs_relative_difference
   - squared_relative_difference

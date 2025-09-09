@@ -37,6 +37,8 @@ def seed_all(seed: int = 0):
 def generate_seed_sequence(
     initial_seed: int,
     length: int,
+
+    # hexadecimal format
     min_val=-0x8000_0000_0000_0000,
     max_val=0xFFFF_FFFF_FFFF_FFFF,
 ):

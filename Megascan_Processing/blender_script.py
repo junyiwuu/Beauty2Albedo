@@ -7,7 +7,7 @@ import random
 import math
 import numpy as np
 import mathutils
-from mathutils import Vector
+# from mathutils import Vector
 
 
 
@@ -234,7 +234,18 @@ def import_asset(asset_folder: str = None):
         normal_map_node = nodes.new(type="ShaderNodeTexImage")
         normal_map_node.image = bpy.data.images.load(filepath = normal_path)
         normal_node = nodes.new(type="ShaderNodeNormalMap")
-        normal_map_node.image.colorspace_settings.name = 'Non-Color'
+
+        colorspace = normal_map_node.image.colorspace_settings
+        available_cs = [a.identifier for a in colorspace.bl_rna.properties["name"].enum_items]
+        if "Non-Color" in available_cs:
+            colorspace.name = "Non-Color"
+        elif "Raw" in available_cs:
+            colorspace.name = "Raw"
+        else:
+            print(f"cannot find Non-Color or Raw in {available_cs}")
+        
+
+
 
         links.new(normal_map_node.outputs["Color"] , normal_node.inputs["Color"])
 
@@ -341,10 +352,14 @@ def render_pass(output_dir: str, cam:bpy.types.Object, idx:int, asset_folder: st
     file_output_node.file_slots.new("Normal")
     normal_slot = file_output_node.file_slots["Normal"]
 
+    # albedo_dir = os.path.join(output_dir, "Albedo")
+    # beauty_dir = os.path.join(output_dir, "Beauty")
+    # normal_dir = os.path.join(output_dir, "Normal")
+
     asset_name = asset_folder.split("/")[-1]
-    file_output_node.file_slots["Beauty"].path = f"{asset_name}_angle{idx+1}_color_"
-    file_output_node.file_slots["Albedo"].path = f"{asset_name}_angle{idx+1}_albedo_"
-    file_output_node.file_slots["Normal"].path = f"{asset_name}_angle{idx+1}_normal_"
+    file_output_node.file_slots["Beauty"].path = f"Beauty/{asset_name}_angle{idx+1}_"
+    file_output_node.file_slots["Albedo"].path = f"Albedo/{asset_name}_angle{idx+1}_"
+    # file_output_node.file_slots["Normal"].path = f"Normal/{asset_name}_angle{idx+1}_"
 
     # CAN CHOOSE TO EXR FILE
     normal_slot.use_node_format = False
@@ -369,9 +384,9 @@ def render_pass(output_dir: str, cam:bpy.types.Object, idx:int, asset_folder: st
     )
 
 
-    node_tree.links.new(
-        rl_node.outputs["custom_Normal"] , file_output_node.inputs["Normal"]
-    )
+    # node_tree.links.new(
+    #     rl_node.outputs["custom_Normal"] , file_output_node.inputs["Normal"]
+    # )
     
 
     bpy.ops.render.render(write_still=True)
@@ -386,6 +401,7 @@ def main():
     parser.add_argument("--hdri_path", type=str, required=False, default=None , help="HDRI directory")
     parser.add_argument("--output_dir" , type=str, required=True, help="set up output render directory")
     parser.add_argument("--num_angles", type=int, default=1, help="Numbers of camera angles")
+    parser.add_argument("--res", type=int, default=128, help="Resolution of output images")
 
     args = parser.parse_args(sys.argv [sys.argv.index("--")+1 : ])
 
@@ -393,8 +409,8 @@ def main():
     # bpy.context.scene.render.engine = 'CYCLES'
     bpy.context.scene.cycles.samples = 128 
     # bpy.context.scene.cycles.device = 'GPU' 
-    bpy.context.scene.render.resolution_x = 512
-    bpy.context.scene.render.resolution_y = 512
+    bpy.context.scene.render.resolution_x = args.res
+    bpy.context.scene.render.resolution_y = args.res
     reset_scene()
     asset = import_asset(args.asset_folder)
 
@@ -412,10 +428,10 @@ def main():
         cam = setup_camera(asset, angle)
         rand = random.randint(1,360)
         setup_HDRI(args.hdri_path , rand)
-        pair_folder = asset_name + f"_PAIR_{idx}"
-        output_pair_dir = os.path.join(args.output_dir , pair_folder)
-        os.makedirs(output_pair_dir, exist_ok=True)
-        render_pass(output_pair_dir, cam, idx, args.asset_folder)
+        # pair_folder = asset_name + f"_PAIR_{idx}"
+        # output_pair_dir = os.path.join(args.output_dir , pair_folder)
+        os.makedirs(args.output_dir, exist_ok=True)
+        render_pass(args.output_dir, cam, idx, args.asset_folder)
 
 
 if __name__ == "__main__":
