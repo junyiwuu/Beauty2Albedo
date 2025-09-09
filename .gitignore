@@ -6,5 +6,10 @@ MonoSD/Marigold/output/*
 MonoSD/safetensors/*
 !MonoSD/safetensors/.gitkeep
 
+
 old/
 old/*
+
+
+__pycache__/
+*.py[cod]

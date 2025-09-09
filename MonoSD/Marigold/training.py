@@ -224,8 +224,8 @@ if "__main__" == __name__:
     # filename_ls_path = r'../../Megascan_Processing/output/filename_lst'
     # filename_ls_val =  r'../../Megascan_Processing/output/filename_lst_val'
 
-    filename_ls = os.path.join(args.training_data, "/filename_lst")
-    filename_ls_val = os.path.join(args.training_data, "/filename_lst_val")
+    filename_ls = os.path.join(args.training_data, "filename_lst")
+    filename_ls_val = os.path.join(args.training_data, "filename_lst_val")
     train_dataset = BeautyAlbedoDataset(dataset_dir=args.training_data, filename_ls_path=filename_ls)
     val_dataset = BeautyAlbedoDataset(dataset_dir=args.training_data, filename_ls_path=filename_ls_val)
 

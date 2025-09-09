@@ -9,6 +9,7 @@
 import torch
 from PIL import Image
 import argparse
+import sys
 
 from transformers import CLIPTextModel, CLIPTokenizer
 from diffusers import UNet2DConditionModel, AutoencoderKL, DDPMScheduler
@@ -89,7 +90,7 @@ def single_inference(src_path, dst_path, input_weights=None):
 
     albedo_color = res.albedo_pil
     os.makedirs(os.path.dirname(dst_path), exist_ok=True)
-    
+
     albedo_color.save(dst_path)
 
 if __name__ == '__main__':
@@ -102,6 +103,15 @@ if __name__ == '__main__':
     parser.add_argument("--weights" , type=str, required=False, default=None, help="The path of downloaded weights")
 
     args = parser.parse_args()
+
+    if not(os.path.exists(args.src_path)):
+        print(f"Source path: {args.src_path} doesn't exist!")
+        sys.exit(1)
+
+    if not(os.path.exists(args.weights)):
+        print(f"Weights path: {args.weights} doesn't exist!")
+        sys.exit(1)
+
 
     if (args.weights):
         input_weights = args.weights
