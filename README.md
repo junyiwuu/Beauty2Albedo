@@ -27,11 +27,15 @@ Used 33 Megascan assets, each rendered from 6 random angles, generating 198 data
 **Note:** This project was developed before the release of Marigold Multimodal version. At the time of development, predicting Albedo was not available in the Marigold repository. Please refer to this [Marigold commit](https://github.com/prs-eth/Marigold/tree/62413d56099d36573b2de1eb8c429839734b7782).
 
 ## How to use:
-Download the repository: `git clone https://github.com/junyiwuu/Beauty2Albedo.git`
+1. Download the repository: `git clone https://github.com/junyiwuu/Beauty2Albedo.git`
+2. `conda env create -f environment.yml`
+3. `conda activate Beauty2Albedo`
+4. `cd Beauty2Albedo`
+
 ### Try the weight:
 
-1. Download weights and put them in `Beauty2Albedo/MonoSD/safetensors` or your customized path
-2. `cd Beauty2Albedo/MonoSD/Marigold/marigold`
+1. **[Download weights](https://huggingface.co/WuJunyi/Beauty2Albedo/tree/main)** and put them in `Beauty2Albedo/MonoSD/safetensors` or your customized path
+2. `cd ./MonoSD/Marigold/marigold`
 3. `python albedo_infer.py --src_path <your_beauty_image> --dst_path <output_path> --weights ../../safetensors` (or you can replace the input_weights to where you download the weights)
     - Example: `python albedo_infer.py --src_path ../../test_images/rgb_images/rlCay.png  --dst_path ../../test_images/infer_images/rlCay_inferAlbedo.png --weights ../../safetensors`
  

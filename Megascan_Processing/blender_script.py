@@ -1,3 +1,11 @@
+# Copyright 2025 Junyi Wu
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+
 import bpy
 import os
 import re
@@ -185,9 +193,6 @@ def import_asset(asset_folder: str = None):
         for node in nodes:
             nodes.remove(node)
 
-
-
-
         # set up texture / find textures
         albedo_path  = None
         rough_path  = None
@@ -351,10 +356,6 @@ def render_pass(output_dir: str, cam:bpy.types.Object, idx:int, asset_folder: st
     file_output_node.file_slots.new("Albedo")
     file_output_node.file_slots.new("Normal")
     normal_slot = file_output_node.file_slots["Normal"]
-
-    # albedo_dir = os.path.join(output_dir, "Albedo")
-    # beauty_dir = os.path.join(output_dir, "Beauty")
-    # normal_dir = os.path.join(output_dir, "Normal")
 
     asset_name = asset_folder.split("/")[-1]
     file_output_node.file_slots["Beauty"].path = f"Beauty/{asset_name}_angle{idx+1}_"

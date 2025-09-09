@@ -1,10 +1,9 @@
-
- #!/usr/bin/env python3 import subprocess
-# 定义一个包含所有资产信息的列表，每个资产使用字典来保存相关参数
-
-
-# 调用 subprocess 执行命令 subprocess.run(command)
-
+# Copyright 2025 Junyi Wu
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
 
           
 import os
