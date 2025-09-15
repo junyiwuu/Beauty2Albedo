@@ -139,3 +139,5 @@ python albedo_infer.py --src_path ../../test_images/rgb_images/rlCay.png  --dst_
 
 
 
+**Disclaimer**: The released weights were trained on a limited amount of rendered data generated from licensed Megascans assets. The weights do not contain or allow reconstruction of the original Megascans textures. Users must obtain assets through their own Quixel accounts to reproduce the dataset generation process.
+
